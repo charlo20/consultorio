@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión de Citas</title>
+</head>
+<body>
+    <h1>Gestión de Citas</h1>
+
+    <form id="searchForm" method="get">
+        <label>Fecha y hora:</label>
+        <input type="datetime-local" name="fechaHora">
+
+        <label>Doctor:</label>
+        <select id="doctorId" name="doctorId">
+            <option value="">-- Seleccione --</option>
+        </select>
+
+        <label>Consultorio:</label>
+        <select id="consultorio" name="consultorio">
+            <option value="">-- Seleccione --</option>
+        </select>
+
+        <button type="submit">Buscar</button>
+    </form>
+
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Paciente</th>
+                <th>Doctor</th>
+                <th>Consultorio</th>
+                <th>Horario</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="citasTableBody">
+        </tbody>
+    </table>
+
+    <hr/>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Cargar doctores
+            fetch("http://localhost:8080/doctores")
+                .then(res => res.json())
+                .then(doctores => {
+                    const select = document.getElementById("doctorId");
+                    doctores.forEach(doctor => {
+                        const option = document.createElement("option");
+                        option.value = doctor.id;
+                        option.text = `${doctor.nombre} ${doctor.apellidoPaterno}`;
+                        select.appendChild(option);
+                    });
+                });
+
+            // Cargar consultorios
+            fetch("http://localhost:8080/consultorio")
+                .then(res => res.json())
+                .then(consultorios => {
+                    const select = document.getElementById("consultorio");
+                    consultorios.forEach(consultorio => {
+                        const option = document.createElement("option");
+                        option.value = consultorio.numeroConsultorio;
+                        option.text = `${consultorio.numeroConsultorio} - Piso ${consultorio.piso}`;
+                        select.appendChild(option);
+                    });
+                });
+
+            // Manejo del formulario
+            const form = document.getElementById("searchForm");
+            form.addEventListener("submit", function (event) {
+                event.preventDefault();
+
+                const fechaHora = document.querySelector('[name="fechaHora"]').value;
+                const doctorId = document.querySelector('[name="doctorId"]').value;
+                const consultorio = document.querySelector('[name="consultorio"]').value;
+
+                const params = [];
+                if (fechaHora) params.push(`fechaHora=${fechaHora}`);
+                if (doctorId) params.push(`doctorId=${doctorId}`);
+                if (consultorio) params.push(`consultorio=${consultorio}`);
+
+                let url = "http://localhost:8080/citas";
+                if (params.length > 0) {
+                    url += "?" + params.join("&");
+                }
+
+                fetch(url)
+                    .then(res => res.json())
+                    .then(citas => {
+                        const tableBody = document.getElementById("citasTableBody");
+                        tableBody.innerHTML = "";
+
+                        if (citas.length === 0) {
+                            tableBody.innerHTML = "<tr><td colspan='5'>No se encontraron citas.</td></tr>";
+                        } else {
+                            citas.forEach(cita => {
+                                const row = document.createElement("tr");
+                                const horario = new Date(cita.horarioConsulta).toLocaleString();
+
+                                row.innerHTML = `
+                                    <td>${cita.nombrePaciente}</td>
+                                    <td>${cita.doctor}</td>
+                                    <td>${cita.consultorio}</td>
+                                    <td>${horario}</td>
+                                    <td>
+                                        <a href="/citas/editar/${cita.id}">Editar</a> |
+                                        <a href="/citas/cancelar/${cita.id}" onclick="return confirm('¿Cancelar cita?')">Cancelar</a>
+                                    </td>
+                                `;
+                                tableBody.appendChild(row);
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error al obtener citas:", error);
+                    });
+            });
+        });
+    </script>
+</body>
+</html>
